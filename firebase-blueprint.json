@@ -1,0 +1,147 @@
+{
+  "entities": {
+    "Shop": {
+      "title": "Shop",
+      "description": "A business shop in the multi-tenant system",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "logo": { "type": "string" },
+        "ownerEmail": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "slug": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "ownerEmail", "ownerUid", "slug"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "A product for sale",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "name": { "type": "string" },
+        "regularPrice": { "type": "number" },
+        "salePrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["Published", "Draft"] }
+      },
+      "required": ["shopId", "name", "regularPrice", "status"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "A customer of a shop",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" }
+      },
+      "required": ["shopId", "name", "phone"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "A recorded sale",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "customerId": { "type": "string" },
+        "productId": { "type": "string" },
+        "totalAmount": { "type": "number" }
+      },
+      "required": ["shopId", "customerId", "productId", "totalAmount"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer order",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "phone": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["shopId", "customerName", "phone", "status"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "A business expense",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "category": { "type": "string" },
+        "amount": { "type": "number" }
+      },
+      "required": ["shopId", "category", "amount"]
+    },
+    "Banner": {
+      "title": "Banner",
+      "description": "A website banner",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "image": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["shopId", "image", "isActive"]
+    },
+    "Collection": {
+      "title": "Collection",
+      "description": "A product collection",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["shopId", "name"]
+    },
+    "FlashSale": {
+      "title": "FlashSale",
+      "description": "A flash sale event",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "title": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["shopId", "title", "isActive"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "A user profile",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "customer"] },
+        "shopId": { "type": "string" }
+      },
+      "required": ["email", "name"]
+    },
+    "Coupon": {
+      "title": "Coupon",
+      "description": "A discount coupon",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string" },
+        "code": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["shopId", "code", "isActive"]
+    }
+  },
+  "firestore": {
+    "/shops": { "schema": "Shop", "description": "Global shops collection" },
+    "/products": { "schema": "Product", "description": "Global products collection" },
+    "/customers": { "schema": "Customer", "description": "Global customers collection" },
+    "/sales": { "schema": "Sale", "description": "Global sales collection" },
+    "/orders": { "schema": "Order", "description": "Global orders collection" },
+    "/expenses": { "schema": "Expense", "description": "Global expenses collection" },
+    "/banners": { "schema": "Banner", "description": "Global banners collection" },
+    "/collections": { "schema": "Collection", "description": "Global collections collection" },
+    "/flashSales": { "schema": "FlashSale", "description": "Global flashSales collection" },
+    "/users": { "schema": "UserProfile", "description": "Global users collection" },
+    "/coupons": { "schema": "Coupon", "description": "Global coupons collection" }
+  }
+}

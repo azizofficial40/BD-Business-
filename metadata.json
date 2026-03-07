@@ -1,0 +1,7 @@
+{
+  "name": "BD Business SaaS",
+  "description": "A multi-tenant SaaS platform for business owners to launch their own online shops and manage inventory with AI-powered insights.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

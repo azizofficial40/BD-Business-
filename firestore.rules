@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isGlobalAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "sylhetkarateAziz8788@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isShopAdmin(shopId) {
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isAuthenticated() && (isGlobalAdmin() || (user.role == 'admin' && user.shopId == shopId));
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // Shops: Publicly readable, owner or global admin can write
+    match /shops/{shopId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isGlobalAdmin() || (isAuthenticated() && resource.data.ownerUid == request.auth.uid);
+    }
+
+    // Products: Publicly readable, shop admin can write
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isShopAdmin(request.resource.data.shopId);
+      allow update, delete: if isAuthenticated() && isShopAdmin(resource.data.shopId);
+    }
+
+    // Customers: Shop admin only
+    match /customers/{customerId} {
+      allow read, write: if isAuthenticated() && (isShopAdmin(resource.data.shopId) || (request.method == 'create' && isShopAdmin(request.resource.data.shopId)));
+    }
+
+    // Sales: Shop admin only
+    match /sales/{saleId} {
+      allow read, write: if isAuthenticated() && (isShopAdmin(resource.data.shopId) || (request.method == 'create' && isShopAdmin(request.resource.data.shopId)));
+    }
+
+    // Orders: Anyone can create (must include shopId), shop admin can manage, user can read own
+    match /orders/{orderId} {
+      allow create: if true; // Allow guest orders
+      allow read: if isAuthenticated() && (isShopAdmin(resource.data.shopId) || resource.data.userId == request.auth.uid);
+      allow update, delete: if isAuthenticated() && isShopAdmin(resource.data.shopId);
+    }
+
+    // Expenses: Shop admin only
+    match /expenses/{expenseId} {
+      allow read, write: if isAuthenticated() && (isShopAdmin(resource.data.shopId) || (request.method == 'create' && isShopAdmin(request.resource.data.shopId)));
+    }
+
+    // Banners, Collections, FlashSales, Coupons: Publicly readable, shop admin can write
+    match /banners/{id} { 
+      allow read: if true; 
+      allow create: if isAuthenticated() && isShopAdmin(request.resource.data.shopId);
+      allow update, delete: if isAuthenticated() && isShopAdmin(resource.data.shopId);
+    }
+    match /collections/{id} { 
+      allow read: if true; 
+      allow create: if isAuthenticated() && isShopAdmin(request.resource.data.shopId);
+      allow update, delete: if isAuthenticated() && isShopAdmin(resource.data.shopId);
+    }
+    match /flashSales/{id} { 
+      allow read: if true; 
+      allow create: if isAuthenticated() && isShopAdmin(request.resource.data.shopId);
+      allow update, delete: if isAuthenticated() && isShopAdmin(resource.data.shopId);
+    }
+    match /coupons/{id} { 
+      allow read: if true; 
+      allow create: if isAuthenticated() && isShopAdmin(request.resource.data.shopId);
+      allow update, delete: if isAuthenticated() && isShopAdmin(resource.data.shopId);
+    }
+
+    // Users: User can read/write their own, global admin can read all
+    match /users/{userId} {
+      allow read: if isGlobalAdmin() || isOwner(userId);
+      allow write: if isOwner(userId) || isGlobalAdmin();
+    }
+
+    // Tenants: Authenticated users can read (TODO: Harden this)
+    match /tenants/{tenantId} {
+      allow read: if isAuthenticated();
+    }
+  }
+}
