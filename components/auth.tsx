@@ -1,21 +1,26 @@
 import React, { useState } from "react";
 import { useStore } from "../store";
 import { useNavigate } from "react-router-dom";
-import { LogIn, UserPlus, Mail, Phone, ArrowRight } from "lucide-react";
+import { LogIn, UserPlus, Mail, Phone, Lock, ArrowRight } from "lucide-react";
 
 const Auth: React.FC = () => {
-  const { loginUser, currentShop } = useStore();
+  const { loginUser, registerUser, currentShop } = useStore();
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await loginUser(email, phone);
+      if (isLogin) {
+        await loginUser(email, password);
+      } else {
+        await registerUser(email, password, phone);
+      }
       navigate(`/s/${currentShop?.slug}/profile`);
     } catch (error) {
       console.error(error);
@@ -63,23 +68,45 @@ const Auth: React.FC = () => {
 
           <div className="space-y-2">
             <label className="text-xs font-black uppercase tracking-widest ml-4 text-slate-400">
-              Phone Number
+              Password
             </label>
             <div className="relative">
-              <Phone
+              <Lock
                 className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400"
                 size={20}
               />
               <input
-                type="tel"
+                type="password"
                 required
                 className="w-full py-4 pl-14 pr-6 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                placeholder="+880 17..."
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
           </div>
+
+          {!isLogin && (
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-widest ml-4 text-slate-400">
+                Phone Number
+              </label>
+              <div className="relative">
+                <Phone
+                  className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={20}
+                />
+                <input
+                  type="tel"
+                  required
+                  className="w-full py-4 pl-14 pr-6 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  placeholder="+880 17..."
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"

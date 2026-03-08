@@ -18,7 +18,7 @@ import {
   FlashSale,
   Shop,
 } from "./types";
-import { db, auth } from "./services/firebase";
+import { db, auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "./services/firebase";
 import {
   collection,
   onSnapshot,
@@ -31,14 +31,9 @@ import {
   orderBy,
   where,
   getDocs,
+  getDoc,
   limit,
 } from "firebase/firestore";
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-} from "firebase/auth";
 
 enum OperationType {
   CREATE = 'create',
@@ -116,7 +111,8 @@ interface StoreContextType extends BusinessState {
   login: (email: string, pass: string) => boolean;
   logout: () => void;
   // User Account Methods
-  loginUser: (email: string, phone: string) => Promise<void>;
+  loginUser: (email: string, pass: string) => Promise<void>;
+  registerUser: (email: string, pass: string, phone: string) => Promise<void>;
   logoutUser: () => void;
   toggleWishlist: (productId: string) => Promise<void>;
   applyCoupon: (code: string, orderTotal: number) => Coupon | null;
@@ -595,19 +591,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // User Auth Methods
-  const loginUser = async (email: string, phone: string) => {
-    // Simple simulation for now, ideally use Firebase Auth
-    // Check if user exists in 'users' collection by email
-    const q = query(collection(db, "users"), where("email", "==", email));
-    const querySnapshot = await getDocs(q);
+  const loginUser = async (email: string, pass: string) => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+      const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
+      if (userDoc.exists()) {
+        setUser({ ...userDoc.data() as UserProfile, id: userDoc.id });
+      }
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  };
 
-    if (!querySnapshot.empty) {
-      const userData = querySnapshot.docs[0].data() as UserProfile;
-      setUser({ ...userData, id: querySnapshot.docs[0].id });
-    } else {
-      // Create new user
+  const registerUser = async (email: string, pass: string, phone: string) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
       const newUser: UserProfile = {
-        id: Date.now().toString(),
+        id: userCredential.user.uid,
         name: email.split("@")[0],
         email,
         phone,
@@ -617,10 +618,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       };
       await setDoc(doc(db, "users", newUser.id), newUser);
       setUser(newUser);
+    } catch (error) {
+      console.error(error);
+      throw error;
     }
   };
 
-  const logoutUser = () => setUser(null);
+  const logoutUser = async () => {
+    await signOut(auth);
+    setUser(null);
+  };
 
   const toggleWishlist = async (productId: string) => {
     if (!user) return;

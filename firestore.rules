@@ -1,99 +1,115 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: shops
+    // Document ID: {shopId}
+    // Fields:
+    //   - name: string (required)
+    //   - ownerUid: string (required)
+    //   - slug: string (required)
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - name: string (required)
+    //   - email: string (required, email format)
+    //   - role: string (optional, enum: ['admin', 'customer'])
+    //
+    // Collection: shops/{shopId}/products
+    // Document ID: {productId}
+    // Fields:
+    //   - name: string (required)
+    //   - shopId: string (required)
+    //
+    // Collection: shops/{shopId}/orders
+    // Document ID: {orderId}
+    // Fields:
+    //   - shopId: string (required)
+    //   - userId: string (optional)
+    //
+    // ===============================================================
+
     // ===============================================================
     // Helper Functions
     // ===============================================================
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
-    function isGlobalAdmin() {
-      return isAuthenticated() && 
-        (request.auth.token.email == "sylhetkarateAziz8788@gmail.com" && request.auth.token.email_verified == true);
-    }
 
-    function isShopAdmin(shopId) {
-      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return isAuthenticated() && (isGlobalAdmin() || (user.role == 'admin' && user.shopId == shopId));
+    function isAuthenticated() {
+       return request.auth != null;
     }
 
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+       return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "sylhetkarateAziz8788@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasRequiredFields(fields) {
+       return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function uidUnchanged() {
+       return !('uid' in request.resource.data) ||
+         request.resource.data.uid == request.auth.uid;
+    }
+
+    function uidNotModified() {
+       return !('uid' in request.resource.data) ||
+         request.resource.data.uid == resource.data.uid;
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+       return request.resource.data[field] is string &&
+         request.resource.data[field].size() >= minLen &&
+         request.resource.data[field].size() <= maxLen;
     }
 
     // ===============================================================
     // Rules
     // ===============================================================
 
-    // Shops: Publicly readable, owner or global admin can write
-    match /shops/{shopId} {
-      allow read: if true;
-      allow create: if isAuthenticated();
-      allow update, delete: if isGlobalAdmin() || (isAuthenticated() && resource.data.ownerUid == request.auth.uid);
-    }
-
-    // Products: Publicly readable, shop admin can write
-    match /products/{productId} {
-      allow read: if true;
-      allow create: if isAuthenticated() && isShopAdmin(request.resource.data.shopId);
-      allow update, delete: if isAuthenticated() && isShopAdmin(resource.data.shopId);
-    }
-
-    // Customers: Shop admin only
-    match /customers/{customerId} {
-      allow read, write: if isAuthenticated() && (isShopAdmin(resource.data.shopId) || (request.method == 'create' && isShopAdmin(request.resource.data.shopId)));
-    }
-
-    // Sales: Shop admin only
-    match /sales/{saleId} {
-      allow read, write: if isAuthenticated() && (isShopAdmin(resource.data.shopId) || (request.method == 'create' && isShopAdmin(request.resource.data.shopId)));
-    }
-
-    // Orders: Anyone can create (must include shopId), shop admin can manage, user can read own
-    match /orders/{orderId} {
-      allow create: if true; // Allow guest orders
-      allow read: if isAuthenticated() && (isShopAdmin(resource.data.shopId) || resource.data.userId == request.auth.uid);
-      allow update, delete: if isAuthenticated() && isShopAdmin(resource.data.shopId);
-    }
-
-    // Expenses: Shop admin only
-    match /expenses/{expenseId} {
-      allow read, write: if isAuthenticated() && (isShopAdmin(resource.data.shopId) || (request.method == 'create' && isShopAdmin(request.resource.data.shopId)));
-    }
-
-    // Banners, Collections, FlashSales, Coupons: Publicly readable, shop admin can write
-    match /banners/{id} { 
-      allow read: if true; 
-      allow create: if isAuthenticated() && isShopAdmin(request.resource.data.shopId);
-      allow update, delete: if isAuthenticated() && isShopAdmin(resource.data.shopId);
-    }
-    match /collections/{id} { 
-      allow read: if true; 
-      allow create: if isAuthenticated() && isShopAdmin(request.resource.data.shopId);
-      allow update, delete: if isAuthenticated() && isShopAdmin(resource.data.shopId);
-    }
-    match /flashSales/{id} { 
-      allow read: if true; 
-      allow create: if isAuthenticated() && isShopAdmin(request.resource.data.shopId);
-      allow update, delete: if isAuthenticated() && isShopAdmin(resource.data.shopId);
-    }
-    match /coupons/{id} { 
-      allow read: if true; 
-      allow create: if isAuthenticated() && isShopAdmin(request.resource.data.shopId);
-      allow update, delete: if isAuthenticated() && isShopAdmin(resource.data.shopId);
-    }
-
-    // Users: User can read/write their own, global admin can read all
-    match /users/{userId} {
-      allow read: if isGlobalAdmin() || isOwner(userId);
-      allow write: if isOwner(userId) || isGlobalAdmin();
-    }
-
-    // Tenants: Authenticated users can read (TODO: Harden this)
     match /tenants/{tenantId} {
       allow read: if isAuthenticated();
+    }
+
+    match /shops/{shopId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && validStringLength('name', 1, 100) && validStringLength('slug', 1, 50);
+      allow update: if isAdmin() && validStringLength('name', 1, 100) && validStringLength('slug', 1, 50);
+      allow delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && hasRequiredFields(['name', 'email']) && validStringLength('name', 1, 100);
+      allow update: if (isOwner(userId) || isAdmin()) && hasOnlyAllowedFields(['name', 'email', 'role', 'phone', 'address', 'wishlist', 'orders', 'createdAt', 'shopId']) && validStringLength('name', 1, 100);
+    }
+
+    match /shops/{shopId}/products/{productId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && validStringLength('name', 1, 100);
+      allow update: if isAdmin() && validStringLength('name', 1, 100);
+      allow delete: if isAdmin();
+    }
+
+    match /shops/{shopId}/orders/{orderId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isAuthenticated() && validStringLength('customerName', 1, 100);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
   }
 }
