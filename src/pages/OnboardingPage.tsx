@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../services/firebase';
 import { handleFirestoreError, OperationType } from '../services/firestoreErrorHandler';
 import { Store, Globe, Image as ImageIcon, ArrowRight, CheckCircle2, Rocket } from 'lucide-react';
@@ -18,14 +18,14 @@ const OnboardingPage: React.FC = () => {
   useEffect(() => {
     const checkExistingBusiness = async () => {
       if (!auth.currentUser) return;
-      const q = query(collection(db, 'tenants'), where('ownerId', '==', auth.currentUser.uid));
+      const q = query(collection(db, 'shops'), where('ownerId', '==', auth.currentUser.uid));
       try {
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
           navigate('/admin');
         }
       } catch (err) {
-        handleFirestoreError(err, OperationType.GET, 'tenants');
+        handleFirestoreError(err, OperationType.GET, 'shops');
       } finally {
         setChecking(false);
       }
@@ -38,12 +38,12 @@ const OnboardingPage: React.FC = () => {
     setLoading(true);
     try {
       // Check if slug is taken
-      const q = query(collection(db, 'tenants'), where('slug', '==', slug.toLowerCase()));
+      const q = query(collection(db, 'shops'), where('shopName', '==', businessName.trim()));
       let snapshot;
       try {
         snapshot = await getDocs(q);
       } catch (err) {
-        handleFirestoreError(err, OperationType.GET, 'tenants');
+        handleFirestoreError(err, OperationType.GET, 'shops');
         return;
       }
       
@@ -54,20 +54,23 @@ const OnboardingPage: React.FC = () => {
       }
 
       try {
-        await addDoc(collection(db, 'tenants'), {
-          name: businessName,
-          slug: slug.toLowerCase(),
-          logo: logo || `https://ui-avatars.com/api/?name=${encodeURIComponent(businessName)}&background=random`,
-          ownerId: auth.currentUser.uid,
-          createdAt: serverTimestamp(),
-          settings: {
-            theme: 'default',
-            currency: 'BDT',
-            contactEmail: auth.currentUser.email
-          }
+        const uid = auth.currentUser.uid;
+        await setDoc(doc(db, 'shops', uid), {
+          shopId: uid,
+          ownerId: uid,
+          shopName: businessName.trim(),
+          createdAt: serverTimestamp()
         });
+
+        await setDoc(doc(db, 'users', uid), {
+          userId: uid,
+          name: auth.currentUser.displayName || businessName.trim(),
+          email: auth.currentUser.email || '',
+          phone: '',
+          shopId: uid
+        }, { merge: true });
       } catch (err) {
-        handleFirestoreError(err, OperationType.CREATE, 'tenants');
+        handleFirestoreError(err, OperationType.CREATE, 'shops/users');
       }
       setStep(3);
     } catch (err) {

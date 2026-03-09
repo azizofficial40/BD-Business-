@@ -28,16 +28,34 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchBusiness = async () => {
       if (!auth.currentUser) return;
-      const q = query(collection(db, 'tenants'), where('ownerId', '==', auth.currentUser.uid), limit(1));
+
       try {
-        const snapshot = await getDocs(q);
-        if (snapshot.empty) {
+        const shopsQuery = query(collection(db, 'shops'), where('ownerId', '==', auth.currentUser.uid), limit(1));
+        const shopsSnapshot = await getDocs(shopsQuery);
+
+        if (!shopsSnapshot.empty) {
+          const shop = shopsSnapshot.docs[0];
+          const data = shop.data() as any;
+          setBusiness({
+            id: shop.id,
+            name: data.shopName,
+            logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.shopName || 'Shop')}&background=random`,
+            slug: (data.shopName || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+            ...data
+          });
+          return;
+        }
+
+        const legacyQuery = query(collection(db, 'tenants'), where('ownerId', '==', auth.currentUser.uid), limit(1));
+        const legacySnapshot = await getDocs(legacyQuery);
+
+        if (legacySnapshot.empty) {
           navigate('/onboarding');
         } else {
-          setBusiness({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
+          setBusiness({ id: legacySnapshot.docs[0].id, ...legacySnapshot.docs[0].data() });
         }
       } catch (err) {
-        handleFirestoreError(err, OperationType.GET, 'tenants');
+        handleFirestoreError(err, OperationType.GET, 'shops/tenants');
       }
     };
     fetchBusiness();
