@@ -38,7 +38,7 @@ const OnboardingPage: React.FC = () => {
     setLoading(true);
     try {
       // Check if slug is taken
-      const q = query(collection(db, 'shops'), where('shopName', '==', businessName.trim()));
+      const q = query(collection(db, 'shops'), where('shopSlug', '==', slug.toLowerCase()));
       let snapshot;
       try {
         snapshot = await getDocs(q);
@@ -59,6 +59,7 @@ const OnboardingPage: React.FC = () => {
           shopId: uid,
           ownerId: uid,
           shopName: businessName.trim(),
+          shopSlug: slug.toLowerCase(),
           createdAt: serverTimestamp()
         });
 
@@ -66,7 +67,7 @@ const OnboardingPage: React.FC = () => {
           userId: uid,
           name: auth.currentUser.displayName || businessName.trim(),
           email: auth.currentUser.email || '',
-          phone: '',
+          phone: auth.currentUser.phoneNumber || 'Not Provided',
           shopId: uid
         }, { merge: true });
       } catch (err) {
@@ -135,7 +136,7 @@ const OnboardingPage: React.FC = () => {
                   <div className="relative">
                     <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                     <div className="flex items-center w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl">
-                      <span className="text-slate-400 mr-1">bdbusiness.com/s/</span>
+                      <span className="text-slate-400 mr-1">bdbusiness.com/shop/</span>
                       <input
                         type="text"
                         value={slug}
@@ -204,7 +205,7 @@ const OnboardingPage: React.FC = () => {
               <p className="text-xl text-slate-600 mb-12 leading-relaxed">
                 Your business <strong>{businessName}</strong> is ready. <br />
                 Your shop is live at: <br />
-                <span className="text-indigo-600 font-bold">bdbusiness.com/s/{slug}</span>
+                <span className="text-indigo-600 font-bold">bdbusiness.com/shop/{slug}</span>
               </p>
               
               <button

@@ -52,10 +52,13 @@ const AuthPage: React.FC = () => {
       const shopRef = doc(db, 'shops', uid);
       const userRef = doc(db, 'users', uid);
 
+      const normalizedShopSlug = shopName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
       await setDoc(shopRef, {
         shopId: uid,
         ownerId: uid,
         shopName: shopName.trim(),
+        shopSlug: normalizedShopSlug,
         createdAt: serverTimestamp()
       });
 

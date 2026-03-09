@@ -40,7 +40,7 @@ const Dashboard: React.FC = () => {
             id: shop.id,
             name: data.shopName,
             logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.shopName || 'Shop')}&background=random`,
-            slug: (data.shopName || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+            slug: data.shopSlug || (data.shopName || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
             ...data
           });
           return;
@@ -116,7 +116,7 @@ const Dashboard: React.FC = () => {
 
             <div className="p-4 border-t border-slate-100 space-y-2">
               <a 
-                href={`/s/${business.slug}`} 
+                href={`/shop/${business.slug}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex items-center justify-between px-4 py-3 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 transition-all"

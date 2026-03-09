@@ -15,14 +15,29 @@ const Storefront: React.FC = () => {
   useEffect(() => {
     const fetchBusiness = async () => {
       if (!slug) return;
-      const q = query(collection(db, 'tenants'), where('slug', '==', slug.toLowerCase()), limit(1));
       try {
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-          setBusiness({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
+        const shopsQuery = query(collection(db, 'shops'), where('shopSlug', '==', slug.toLowerCase()), limit(1));
+        let snapshot = await getDocs(shopsQuery);
+
+        if (snapshot.empty) {
+          const legacyQuery = query(collection(db, 'tenants'), where('slug', '==', slug.toLowerCase()), limit(1));
+          snapshot = await getDocs(legacyQuery);
+
+          if (!snapshot.empty) {
+            setBusiness({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
+          }
+        } else {
+          const shop = snapshot.docs[0];
+          const data = shop.data() as any;
+          setBusiness({
+            id: shop.id,
+            name: data.shopName,
+            logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.shopName || 'Shop')}&background=random`,
+            ...data
+          });
         }
       } catch (err) {
-        handleFirestoreError(err, OperationType.GET, 'tenants');
+        handleFirestoreError(err, OperationType.GET, 'shops/tenants');
       } finally {
         setLoading(false);
       }
@@ -70,9 +85,9 @@ const Storefront: React.FC = () => {
           </div>
 
           <nav className="hidden lg:flex items-center gap-8">
-            <Link to={`/s/${slug}`} className="text-sm font-semibold text-slate-900">Home</Link>
-            <Link to={`/s/${slug}/shop`} className="text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors">Shop</Link>
-            <Link to={`/s/${slug}/about`} className="text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors">About</Link>
+            <Link to={`/shop/${slug}`} className="text-sm font-semibold text-slate-900">Home</Link>
+            <Link to={`/shop/${slug}/shop`} className="text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors">Shop</Link>
+            <Link to={`/shop/${slug}/about`} className="text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors">About</Link>
           </nav>
 
           <div className="flex items-center gap-4">
@@ -113,9 +128,9 @@ const Storefront: React.FC = () => {
                 </button>
               </div>
               <nav className="flex flex-col gap-6">
-                <Link to={`/s/${slug}`} className="text-2xl font-bold">Home</Link>
-                <Link to={`/s/${slug}/shop`} className="text-2xl font-bold text-slate-400">Shop</Link>
-                <Link to={`/s/${slug}/about`} className="text-2xl font-bold text-slate-400">About</Link>
+                <Link to={`/shop/${slug}`} className="text-2xl font-bold">Home</Link>
+                <Link to={`/shop/${slug}/shop`} className="text-2xl font-bold text-slate-400">Shop</Link>
+                <Link to={`/shop/${slug}/about`} className="text-2xl font-bold text-slate-400">About</Link>
               </nav>
             </motion.div>
           </>
@@ -162,7 +177,7 @@ const Storefront: React.FC = () => {
       <section className="py-24 px-6 max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-12">
           <h3 className="text-3xl font-bold text-slate-900">Featured Products</h3>
-          <Link to={`/s/${slug}/shop`} className="text-indigo-600 font-bold hover:underline">View All</Link>
+          <Link to={`/shop/${slug}/shop`} className="text-indigo-600 font-bold hover:underline">View All</Link>
         </div>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
@@ -212,10 +227,10 @@ const Storefront: React.FC = () => {
           <div>
             <h5 className="font-bold mb-6">Quick Links</h5>
             <nav className="flex flex-col gap-4 text-slate-500">
-              <Link to={`/s/${slug}`} className="hover:text-indigo-600 transition-colors">Home</Link>
-              <Link to={`/s/${slug}/shop`} className="hover:text-indigo-600 transition-colors">Shop</Link>
-              <Link to={`/s/${slug}/about`} className="hover:text-indigo-600 transition-colors">About Us</Link>
-              <Link to={`/s/${slug}/contact`} className="hover:text-indigo-600 transition-colors">Contact</Link>
+              <Link to={`/shop/${slug}`} className="hover:text-indigo-600 transition-colors">Home</Link>
+              <Link to={`/shop/${slug}/shop`} className="hover:text-indigo-600 transition-colors">Shop</Link>
+              <Link to={`/shop/${slug}/about`} className="hover:text-indigo-600 transition-colors">About Us</Link>
+              <Link to={`/shop/${slug}/contact`} className="hover:text-indigo-600 transition-colors">Contact</Link>
             </nav>
           </div>
           <div>

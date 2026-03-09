@@ -47,6 +47,7 @@ const App: React.FC = () => {
         
         {/* Public Storefronts */}
         <Route path="/s/:slug/*" element={<Storefront />} />
+        <Route path="/shop/:slug/*" element={<Storefront />} />
         
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" />} />
