@@ -4,47 +4,40 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ===============================================================
-    // Assumed Data Model
+    // Data Model
     // ===============================================================
+    // users/{userId}
+    //   - userId: string
+    //   - name: string
+    //   - email: string
+    //   - shopName: string
     //
-    // Collection: shops
-    // Document ID: {shopId}
-    // Fields:
-    //   - name: string (required)
-    //   - ownerUid: string (required)
-    //   - slug: string (required)
+    // shops/{shopId}
+    //   - shopId: string
+    //   - ownerId: string
+    //   - shopName: string
+    //   - createdAt: timestamp
     //
-    // Collection: users
-    // Document ID: {userId}
-    // Fields:
-    //   - name: string (required)
-    //   - email: string (required, email format)
-    //   - role: string (optional, enum: ['admin', 'customer'])
+    // products/{productId}
+    //   - productId: string
+    //   - shopId: string
+    //   - name: string
+    //   - price: number
+    //   - image: string
     //
-    // Collection: shops/{shopId}/products
-    // Document ID: {productId}
-    // Fields:
-    //   - name: string (required)
-    //   - shopId: string (required)
-    //
-    // Collection: shops/{shopId}/orders
-    // Document ID: {orderId}
-    // Fields:
-    //   - shopId: string (required)
-    //   - userId: string (optional)
-    //
-    // ===============================================================
-
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
+    // orders/{orderId}
+    //   - orderId: string
+    //   - shopId: string
+    //   - productId: string
+    //   - customerName: string
+    //   - status: string
 
     function isAuthenticated() {
-       return request.auth != null;
+      return request.auth != null;
     }
 
     function isOwner(userId) {
-       return isAuthenticated() && request.auth.uid == userId;
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
     function isAdmin() {
@@ -53,63 +46,114 @@ service cloud.firestore {
           (request.auth.token.email == "sylhetkarateAziz8788@gmail.com" && request.auth.token.email_verified == true));
     }
 
-    function hasRequiredFields(fields) {
-       return request.resource.data.keys().hasAll(fields);
+    function validString(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
     }
 
-    function hasOnlyAllowedFields(fields) {
+    function hasOnlyFields(fields) {
       return request.resource.data.keys().hasOnly(fields);
     }
 
-    function uidUnchanged() {
-       return !('uid' in request.resource.data) ||
-         request.resource.data.uid == request.auth.uid;
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
     }
 
-    function uidNotModified() {
-       return !('uid' in request.resource.data) ||
-         request.resource.data.uid == resource.data.uid;
-    }
-
-    function validStringLength(field, minLen, maxLen) {
-       return request.resource.data[field] is string &&
-         request.resource.data[field].size() >= minLen &&
-         request.resource.data[field].size() <= maxLen;
-    }
-
-    // ===============================================================
-    // Rules
-    // ===============================================================
-
-    match /tenants/{tenantId} {
-      allow read: if isAuthenticated();
-    }
-
-    match /shops/{shopId} {
-      allow read: if isAuthenticated();
-      allow create: if isAdmin() && validStringLength('name', 1, 100) && validStringLength('slug', 1, 50);
-      allow update: if isAdmin() && validStringLength('name', 1, 100) && validStringLength('slug', 1, 50);
-      allow delete: if isAdmin();
-    }
-
+    // users
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && hasRequiredFields(['name', 'email']) && validStringLength('name', 1, 100);
-      allow update: if (isOwner(userId) || isAdmin()) && hasOnlyAllowedFields(['name', 'email', 'role', 'phone', 'address', 'wishlist', 'orders', 'createdAt', 'shopId']) && validStringLength('name', 1, 100);
+
+      allow create: if isOwner(userId) &&
+        hasRequiredFields(['userId', 'name', 'email', 'shopName']) &&
+        hasOnlyFields(['userId', 'name', 'email', 'shopName', 'role']) &&
+        request.resource.data.userId == request.auth.uid &&
+        validString('name', 1, 100) &&
+        validString('email', 5, 254) &&
+        validString('shopName', 1, 100);
+
+      allow update: if (isOwner(userId) || isAdmin()) &&
+        hasRequiredFields(['userId', 'name', 'email', 'shopName']) &&
+        hasOnlyFields(['userId', 'name', 'email', 'shopName', 'role']) &&
+        request.resource.data.userId == resource.data.userId &&
+        validString('name', 1, 100) &&
+        validString('email', 5, 254) &&
+        validString('shopName', 1, 100);
+
+      allow delete: if isAdmin();
     }
 
-    match /shops/{shopId}/products/{productId} {
+    // shops
+    match /shops/{shopId} {
       allow read: if isAuthenticated();
-      allow create: if isAdmin() && validStringLength('name', 1, 100);
-      allow update: if isAdmin() && validStringLength('name', 1, 100);
+
+      allow create: if isAuthenticated() &&
+        hasRequiredFields(['shopId', 'ownerId', 'shopName', 'createdAt']) &&
+        hasOnlyFields(['shopId', 'ownerId', 'shopName', 'createdAt']) &&
+        request.resource.data.shopId == shopId &&
+        request.resource.data.ownerId == request.auth.uid &&
+        validString('shopName', 1, 100) &&
+        request.resource.data.createdAt is timestamp;
+
+      allow update: if (isAdmin() || request.auth.uid == resource.data.ownerId) &&
+        hasRequiredFields(['shopId', 'ownerId', 'shopName', 'createdAt']) &&
+        hasOnlyFields(['shopId', 'ownerId', 'shopName', 'createdAt']) &&
+        request.resource.data.shopId == resource.data.shopId &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        validString('shopName', 1, 100) &&
+        request.resource.data.createdAt is timestamp;
+
+      allow delete: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.ownerId);
+    }
+
+    // products
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated() &&
+        hasRequiredFields(['productId', 'shopId', 'name', 'price', 'image']) &&
+        hasOnlyFields(['productId', 'shopId', 'name', 'price', 'image']) &&
+        request.resource.data.productId == productId &&
+        validString('name', 1, 200) &&
+        request.resource.data.price is number &&
+        request.resource.data.price >= 0 &&
+        validString('image', 1, 2048) &&
+        request.auth.uid == get(/databases/$(database)/documents/shops/$(request.resource.data.shopId)).data.ownerId;
+
+      allow update: if isAuthenticated() &&
+        hasRequiredFields(['productId', 'shopId', 'name', 'price', 'image']) &&
+        hasOnlyFields(['productId', 'shopId', 'name', 'price', 'image']) &&
+        request.resource.data.productId == resource.data.productId &&
+        request.resource.data.shopId == resource.data.shopId &&
+        validString('name', 1, 200) &&
+        request.resource.data.price is number &&
+        request.resource.data.price >= 0 &&
+        validString('image', 1, 2048) &&
+        (isAdmin() || request.auth.uid == get(/databases/$(database)/documents/shops/$(resource.data.shopId)).data.ownerId);
+
+      allow delete: if isAdmin() || (isAuthenticated() && request.auth.uid == get(/databases/$(database)/documents/shops/$(resource.data.shopId)).data.ownerId);
+    }
+
+    // orders
+    match /orders/{orderId} {
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == get(/databases/$(database)/documents/shops/$(resource.data.shopId)).data.ownerId);
+
+      allow create: if isAuthenticated() &&
+        hasRequiredFields(['orderId', 'shopId', 'productId', 'customerName', 'status']) &&
+        hasOnlyFields(['orderId', 'shopId', 'productId', 'customerName', 'status']) &&
+        request.resource.data.orderId == orderId &&
+        validString('customerName', 1, 100) &&
+        validString('status', 1, 40) &&
+        exists(/databases/$(database)/documents/shops/$(request.resource.data.shopId)) &&
+        exists(/databases/$(database)/documents/products/$(request.resource.data.productId));
+
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == get(/databases/$(database)/documents/shops/$(resource.data.shopId)).data.ownerId);
       allow delete: if isAdmin();
     }
 
-    match /shops/{shopId}/orders/{orderId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
-      allow create: if isAuthenticated() && validStringLength('customerName', 1, 100);
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+    // Optional legacy support for existing tenant reads in the app.
+    match /tenants/{tenantId} {
+      allow read: if isAuthenticated();
     }
   }
 }
