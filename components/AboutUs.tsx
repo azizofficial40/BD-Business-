@@ -1,8 +1,8 @@
 import React from "react";
 import { useStore } from "../store";
 import { Mail, Phone, MapPin, ShieldCheck, Heart, Star } from "lucide-react";
-import Navbar from "./Navbar.tsx";
-import Footer from "./Footer.tsx";
+import Navbar from "./Navbar";
+import Footer from "./Footer";
 import { motion } from "framer-motion";
 
 const AboutUs: React.FC = () => {

@@ -21,7 +21,7 @@ const Auth: React.FC = () => {
       } else {
         await registerUser(email, password, phone);
       }
-      navigate(`/s/${currentShop?.slug}/profile`);
+      navigate(`/store/${currentShop?.slug}/profile`);
     } catch (error) {
       console.error(error);
       alert("Authentication failed");

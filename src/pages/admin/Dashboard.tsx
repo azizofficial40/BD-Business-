@@ -17,7 +17,11 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-import AIAssistant from '../../components/AIAssistant';
+import OrdersComponent from '../../../components/orders';
+import CustomersComponent from '../../../components/customers';
+import SettingsComponent from '../../../components/settings';
+import StockComponent from '../../../components/stock';
+import AIAssistant from '../../../components/ai-assistant';
 
 const Dashboard: React.FC = () => {
   const [business, setBusiness] = useState<any>(null);
@@ -28,7 +32,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchBusiness = async () => {
       if (!auth.currentUser) return;
-      const q = query(collection(db, 'tenants'), where('ownerId', '==', auth.currentUser.uid), limit(1));
+      const q = query(collection(db, 'shops'), where('ownerUid', '==', auth.currentUser.uid), limit(1));
       try {
         const snapshot = await getDocs(q);
         if (snapshot.empty) {
@@ -37,7 +41,7 @@ const Dashboard: React.FC = () => {
           setBusiness({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
         }
       } catch (err) {
-        handleFirestoreError(err, OperationType.GET, 'tenants');
+        handleFirestoreError(err, OperationType.GET, 'shops');
       }
     };
     fetchBusiness();
@@ -98,7 +102,7 @@ const Dashboard: React.FC = () => {
 
             <div className="p-4 border-t border-slate-100 space-y-2">
               <a 
-                href={`/s/${business.slug}`} 
+                href={`/shop/${business.slug}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex items-center justify-between px-4 py-3 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 transition-all"
@@ -146,15 +150,15 @@ const Dashboard: React.FC = () => {
         <div className="p-8 max-w-7xl mx-auto">
           <Routes>
             <Route path="/" element={<DashboardOverview business={business} />} />
-            <Route path="/products" element={<div className="p-12 text-center text-slate-400">Products Management Coming Soon</div>} />
-            <Route path="/orders" element={<div className="p-12 text-center text-slate-400">Orders Management Coming Soon</div>} />
-            <Route path="/customers" element={<div className="p-12 text-center text-slate-400">Customers Management Coming Soon</div>} />
-            <Route path="/settings" element={<div className="p-12 text-center text-slate-400">Settings Coming Soon</div>} />
+            <Route path="/products" element={<StockComponent />} />
+            <Route path="/orders" element={<OrdersComponent />} />
+            <Route path="/customers" element={<CustomersComponent />} />
+            <Route path="/settings" element={<SettingsComponent />} />
           </Routes>
         </div>
       </main>
 
-      <AIAssistant businessData={business} />
+      <AIAssistant />
     </div>
   );
 };

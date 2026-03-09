@@ -26,9 +26,9 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Product, StockVariant, Order } from "../types";
 
-import Toast from "./Toast.tsx";
-import Footer from "./Footer.tsx";
-import Navbar from "./Navbar.tsx";
+import Toast from "./Toast";
+import Footer from "./Footer";
+import Navbar from "./Navbar";
 
 const Shop: React.FC = () => {
   const {
@@ -87,11 +87,15 @@ const Shop: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      setCustomerDetails({
-        name: user.name,
-        phone: user.phone,
-        address: "", // User address might need to be added to UserProfile type if we want to save it
-      });
+      setTimeout(() => {
+        setCustomerDetails({
+          name: user.name,
+          phone: user.phone || "",
+          address: "", // User address might need to be added to UserProfile type if we want to save it
+          city: "",
+          orderNotes: "",
+        });
+      }, 0);
     }
   }, [user]);
 
@@ -101,11 +105,15 @@ const Shop: React.FC = () => {
     const prodId = searchParams.get("product");
 
     if (colId) {
-      setSelectedCollectionId(colId);
-      setSelectedCategory("All");
+      setTimeout(() => {
+        setSelectedCollectionId(colId);
+        setSelectedCategory("All");
+      }, 0);
     } else if (cat) {
-      setSelectedCategory(cat);
-      setSelectedCollectionId(null);
+      setTimeout(() => {
+        setSelectedCategory(cat);
+        setSelectedCollectionId(null);
+      }, 0);
     } else {
       // If neither is present, we might want to reset or keep current state.
       // But if we navigated to /shop without params, we should probably reset.
@@ -117,22 +125,26 @@ const Shop: React.FC = () => {
 
     if (prodId) {
       const product = products.find((p) => p.id === prodId);
-      if (product) setSelectedProduct(product);
+      if (product) {
+        setTimeout(() => setSelectedProduct(product), 0);
+      }
     }
   }, [searchParams, products]);
 
   useEffect(() => {
     if (selectedProduct) {
-      setActiveImage(selectedProduct.image);
+      setTimeout(() => setActiveImage(selectedProduct.image), 0);
     }
-  }, [selectedProduct?.id]);
+  }, [selectedProduct?.id, selectedProduct?.image]);
 
   useEffect(() => {
     if (selectedProduct) {
       const updated = products.find((p) => p.id === selectedProduct.id);
-      if (updated) setSelectedProduct(updated);
+      if (updated) {
+        setTimeout(() => setSelectedProduct(updated), 0);
+      }
     }
-  }, [products]);
+  }, [products, selectedProduct?.id]);
 
   const cartTotal = cart.reduce(
     (acc, item) => acc + item.product.salePrice * item.quantity,
@@ -235,10 +247,14 @@ const Shop: React.FC = () => {
       !customerDetails.city
     )
       return;
-    if (!transactionId) return;
+    if (paymentMethod !== "COD" && !transactionId) return;
+
+    // Fallback to a default shop ID if currentShop is null, or handle as needed
+    const shopId = currentShop?.id || "default-shop-id"; 
 
     await placeOrder({
       id: Date.now().toString(),
+      shopId: shopId,
       userId: user?.id || null,
       customerName: customerDetails.name,
       phone: customerDetails.phone,
@@ -294,9 +310,12 @@ const Shop: React.FC = () => {
       />
 
       {/* Hero */}
-      <div className="relative bg-slate-900 text-white py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80')] bg-cover bg-center opacity-20 mix-blend-overlay"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-900/80 to-slate-900"></div>
+      <div className="relative bg-slate-900 text-white py-32 overflow-hidden" style={{ backgroundColor: currentShop?.themeOptions?.primaryColor || '#0f172a' }}>
+        <div 
+          className="absolute inset-0 bg-cover bg-center opacity-20 mix-blend-overlay"
+          style={{ backgroundImage: `url('${currentShop?.bannerImage || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80"}')` }}
+        ></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-900/80 to-slate-900" style={{ backgroundImage: `linear-gradient(to bottom, transparent, ${currentShop?.themeOptions?.primaryColor || '#0f172a'}cc, ${currentShop?.themeOptions?.primaryColor || '#0f172a'})` }}></div>
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -307,24 +326,21 @@ const Shop: React.FC = () => {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.4 }}
-            className="inline-block px-4 py-1.5 bg-indigo-500/20 border border-indigo-500/30 backdrop-blur-md rounded-full text-indigo-300 text-[10px] font-black uppercase tracking-[0.2em] mb-4"
+            className="inline-block px-4 py-1.5 bg-white/10 border border-white/20 backdrop-blur-md rounded-full text-white text-[10px] font-black uppercase tracking-[0.2em] mb-4"
           >
-            New Collection 2026
+            Welcome to
           </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
             className="text-5xl md:text-8xl font-black tracking-tighter leading-[0.9]"
+            style={{ fontFamily: currentShop?.themeOptions?.fontStyle || 'Inter' }}
           >
-            Redefine Your <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 animate-gradient-x">
-              Style Statement
-            </span>
+            {currentShop?.name || "Your Store"}
           </motion.h1>
-          <p className="text-slate-400 font-medium text-lg max-w-2xl mx-auto leading-relaxed">
-            Discover premium fashion that speaks your language. Sustainable
-            materials, modern cuts, and timeless designs curated just for you.
+          <p className="text-slate-300 font-medium text-lg max-w-2xl mx-auto leading-relaxed">
+            {currentShop?.description || "Discover premium products curated just for you."}
           </p>
           <div className="flex justify-center gap-4 pt-4">
             <button
@@ -784,6 +800,18 @@ const Shop: React.FC = () => {
                         </a>
                       </div>
                     )}
+                    <div className="mt-6">
+                      <button
+                        onClick={() => {
+                          const firstVariant = selectedProduct.variants[0];
+                          handleWhatsAppOrder([{ product: selectedProduct, variant: firstVariant, quantity: 1 }]);
+                        }}
+                        className="w-full py-4 bg-emerald-500 text-white rounded-xl font-black shadow-xl flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors"
+                      >
+                        <MessageCircle size={20} />
+                        Order via WhatsApp
+                      </button>
+                    </div>
                     {selectedProduct.features &&
                       selectedProduct.features.length > 0 && (
                         <ul className="mt-4 space-y-2">
@@ -956,7 +984,7 @@ const Shop: React.FC = () => {
                       </div>
                     ) : (
                       <button
-                        onClick={() => navigate(`/s/${currentShop?.slug}/login`)}
+                        onClick={() => navigate(`/store/${currentShop?.slug}/login`)}
                         className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                       >
                         Login to Review

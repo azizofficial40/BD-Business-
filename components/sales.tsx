@@ -170,6 +170,7 @@ const Sales: React.FC = () => {
     addSale,
     addCustomer,
     language,
+    currentShop,
   } = useStore();
   const t = SALES_T[language];
 
@@ -207,8 +208,13 @@ const Sales: React.FC = () => {
   };
 
   const handleAddCustomer = () => {
+    if (!currentShop) {
+      alert("Please select a shop first.");
+      return;
+    }
     const customer: Customer = {
       id: Date.now().toString(),
+      shopId: currentShop.id,
       ...newCustomer,
       totalSpent: 0,
       totalDue: 0,
@@ -220,6 +226,10 @@ const Sales: React.FC = () => {
   };
 
   const handleCompleteSale = () => {
+    if (!currentShop) {
+      alert("Please select a shop first.");
+      return;
+    }
     if (
       !selectedProduct ||
       !selectedCustomer ||
@@ -238,6 +248,7 @@ const Sales: React.FC = () => {
 
     addSale({
       id: Date.now().toString(),
+      shopId: currentShop.id,
       customerId: selectedCustomer.id,
       customerName: selectedCustomer.name,
       productId: selectedProduct.id,

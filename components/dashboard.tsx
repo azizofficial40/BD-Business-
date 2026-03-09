@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Target,
   ShoppingBag,
+  Users,
 } from "lucide-react";
 
 const DASHBOARD_T = {
@@ -72,11 +73,17 @@ const DashboardCard: React.FC<{
   </div>
 );
 
-const Dashboard: React.FC<{ onNavigate?: (tab: TabType) => void }> = ({
-  onNavigate,
-}) => {
-  const { sales = [], expenses = [], products = [], language } = useStore();
+import { useNavigate } from "react-router-dom";
+
+const Dashboard: React.FC = () => {
+  const { sales = [], expenses = [], products = [], orders = [], customers = [], language } = useStore();
+  const navigate = useNavigate();
   const t = DASHBOARD_T[language];
+
+  const totalOrders = orders.length;
+  const totalRevenue = sales.reduce((acc, s) => acc + s.totalAmount, 0);
+  const totalProducts = products.length;
+  const totalCustomers = customers.length;
 
   const today = new Date().toLocaleDateString();
   const todaySales = sales
@@ -95,6 +102,38 @@ const Dashboard: React.FC<{ onNavigate?: (tab: TabType) => void }> = ({
 
   return (
     <div className="space-y-10">
+      {/* Overview Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <DashboardCard
+          title="Total Orders"
+          value={totalOrders.toString()}
+          icon={<ShoppingBag size={24} />}
+          colorClass="text-indigo-600"
+          bgColorClass="bg-indigo-100"
+        />
+        <DashboardCard
+          title="Total Revenue"
+          value={`৳${totalRevenue.toLocaleString()}`}
+          icon={<Coins size={24} />}
+          colorClass="text-emerald-600"
+          bgColorClass="bg-emerald-100"
+        />
+        <DashboardCard
+          title="Total Products"
+          value={totalProducts.toString()}
+          icon={<Package size={24} />}
+          colorClass="text-purple-600"
+          bgColorClass="bg-purple-100"
+        />
+        <DashboardCard
+          title="Total Customers"
+          value={totalCustomers.toString()}
+          icon={<Users size={24} />}
+          colorClass="text-orange-600"
+          bgColorClass="bg-orange-100"
+        />
+      </div>
+
       {/* Hero Income Panel */}
       <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-white dark:border-slate-800 shadow-[0_30px_60px_rgba(0,0,0,0.05)] text-center relative overflow-hidden group">
         <div className="absolute top-[-50px] left-[-50px] w-64 h-64 bg-indigo-50 dark:bg-indigo-950/20 rounded-full blur-[80px] opacity-60 group-hover:opacity-100 transition-opacity"></div>
@@ -178,7 +217,7 @@ const Dashboard: React.FC<{ onNavigate?: (tab: TabType) => void }> = ({
           <div
             key={i}
             className="flex flex-col items-center gap-2 group cursor-pointer"
-            onClick={() => onNavigate?.(action.tab as TabType)}
+            onClick={() => navigate(action.tab === "dashboard" ? "/admin" : `/admin/${action.tab}`)}
           >
             <div
               className={`${action.color} text-white w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform active:scale-90`}

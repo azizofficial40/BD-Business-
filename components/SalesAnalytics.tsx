@@ -106,6 +106,25 @@ const ANALYTICS_T = {
   },
 };
 
+const now = new Date();
+
+const getStartOfDay = (date: Date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const getStartOfWeek = (date: Date) => {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+  return new Date(d.setDate(diff));
+};
+
+const getStartOfMonth = (date: Date) => {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+};
+
 const SalesAnalytics: React.FC = () => {
   const { orders = [], language } = useStore();
   const t = ANALYTICS_T[language];
@@ -119,25 +138,6 @@ const SalesAnalytics: React.FC = () => {
   const [filterType, setFilterType] = useState<
     "all" | "day" | "week" | "month" | "custom"
   >("all");
-
-  const now = new Date("2026-03-06T00:14:20-08:00");
-
-  const getStartOfDay = (date: Date) => {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  };
-
-  const getStartOfWeek = (date: Date) => {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-    return new Date(d.setDate(diff));
-  };
-
-  const getStartOfMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth(), 1);
-  };
 
   // Summary Calculations
   const summary = useMemo(() => {

@@ -67,8 +67,9 @@ interface StoreContextType extends BusinessState {
   shops: Shop[];
   currentShop: Shop | null;
   setCurrentShop: (shop: Shop | null) => void;
-  createShop: (shopData: Omit<Shop, "id" | "ownerUid" | "ownerEmail" | "createdAt">) => Promise<string>;
+  createShop: (shopData: Omit<Shop, "id" | "ownerUid" | "ownerEmail" | "createdAt">, extraUserInfo?: { name?: string; phone?: string }) => Promise<string>;
   fetchShopBySlug: (slug: string) => Promise<Shop | null>;
+  fetchShopById: (id: string) => Promise<Shop | null>;
   orders: Order[];
   cart: CartItem[];
   coupons: Coupon[];
@@ -105,10 +106,12 @@ interface StoreContextType extends BusinessState {
   deleteCustomer: (id: string) => Promise<void>;
   receivePayment: (customerId: string, amount: number) => Promise<void>;
   updateAdmin: (adminData: BusinessState["admin"]) => Promise<void>;
+  updateShopSettings: (shopData: Partial<Shop>) => Promise<void>;
   setLanguage: (lang: Language) => void;
   setApiKey: (key: string) => void;
   toggleTheme: () => void;
-  login: (email: string, pass: string) => boolean;
+  login: (email: string, pass: string) => Promise<boolean>;
+  signUp: (email: string, pass: string, name: string) => Promise<string>;
   logout: () => void;
   // User Account Methods
   loginUser: (email: string, pass: string) => Promise<void>;
@@ -119,6 +122,8 @@ interface StoreContextType extends BusinessState {
   addReview: (productId: string, review: Review) => Promise<void>;
   handleWhatsAppOrder: (items: CartItem[], details?: any) => void;
   error: { message: string; code?: string } | null;
+  notification: { message: string; type: "success" | "error" | "info" } | null;
+  setNotification: (notification: { message: string; type: "success" | "error" | "info" } | null) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -197,6 +202,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const handleFirebaseError = (err: any, operationType: OperationType = OperationType.LIST, path: string | null = null) => {
     console.error("Firebase Error:", err);
     
+    // If it's a "No shop selected" error, just show a notification and return
+    if (err.message === "No shop selected") {
+      showNotification(
+        language === "bn"
+          ? "কোনো দোকান নির্বাচন করা হয়নি। দয়া করে আবার লগইন করুন বা দোকান তৈরি করুন।"
+          : "No shop selected. Please login again or create a shop.",
+        "error"
+      );
+      return;
+    }
+
     const errInfo: FirestoreErrorInfo = {
       error: err instanceof Error ? err.message : String(err),
       authInfo: {
@@ -234,8 +250,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     }
     showNotification(err.message || "An error occurred", "error");
     
-    // Re-throw as JSON string for system diagnosis
-    throw new Error(JSON.stringify(errInfo));
+    // Only re-throw if it's not a handled error
+    // throw new Error(JSON.stringify(errInfo));
   };
 
   // Real-time Firebase listeners
@@ -250,23 +266,43 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     // Auth State Listener
     const unsubAuth = auth.onAuthStateChanged(async (firebaseUser) => {
       if (firebaseUser) {
-        // Fetch user profile
-        const userDoc = await getDocs(query(collection(db, "users"), where("email", "==", firebaseUser.email)));
-        if (!userDoc.empty) {
-          const userData = { id: userDoc.docs[0].id, ...userDoc.docs[0].data() } as UserProfile;
-          setUser(userData);
-          
-          // If admin, set current shop
-          if (userData.role === "admin" && userData.shopId) {
-            const shopDoc = await getDocs(query(collection(db, "shops"), where("id", "==", userData.shopId)));
-            if (!shopDoc.empty) {
-              setCurrentShop({ id: shopDoc.docs[0].id, ...shopDoc.docs[0].data() } as Shop);
-            }
+        // Fetch user profile by UID first (more reliable)
+        let userDocSnap = await getDoc(doc(db, "users", firebaseUser.uid));
+        
+        // Fallback to email query if UID lookup fails (legacy support)
+        if (!userDocSnap.exists() && firebaseUser.email) {
+          const q = query(collection(db, "users"), where("email", "==", firebaseUser.email));
+          const querySnapshot = await getDocs(q);
+          if (!querySnapshot.empty) {
+            userDocSnap = querySnapshot.docs[0];
           }
         }
+
+        if (userDocSnap.exists()) {
+          const userData = { id: userDocSnap.id, ...userDocSnap.data() } as UserProfile;
+          setUser(userData);
+          
+          // If admin/owner, set current shop
+          if ((userData.role === "admin" || userData.role === "owner") && userData.shopId) {
+            const shopDocSnap = await getDoc(doc(db, "shops", userData.shopId));
+            if (shopDocSnap.exists()) {
+              setCurrentShop({ id: shopDocSnap.id, ...shopDocSnap.data() } as Shop);
+            } else {
+              // Shop ID exists in user profile but shop document is missing
+              console.warn("Shop not found for user:", userData.shopId);
+              setCurrentShop(null);
+            }
+          }
+        } else {
+          // User authenticated but no profile exists yet
+          console.log("User authenticated but no profile found");
+          setUser(null);
+        }
+        setIsLoggedIn(true);
       } else {
         setUser(null);
         setIsLoggedIn(false);
+        setCurrentShop(null);
       }
     });
 
@@ -279,15 +315,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     if (!db || !currentShop) {
       // Clear data if no shop selected
-      setProducts([]);
-      setCustomers([]);
-      setSales([]);
-      setOrders([]);
-      setExpenses([]);
-      setCoupons([]);
-      setBanners([]);
-      setCollections([]);
-      setFlashSales([]);
+      setTimeout(() => {
+        setProducts([]);
+        setCustomers([]);
+        setSales([]);
+        setOrders([]);
+        setExpenses([]);
+        setCoupons([]);
+        setBanners([]);
+        setCollections([]);
+        setFlashSales([]);
+      }, 0);
       return;
     }
 
@@ -359,7 +397,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
                   "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3",
                 );
                 audio.play().catch((e) => console.log("Audio play failed", e));
-              } catch (e) {}
+              } catch (e) {
+        // Ignore error
+      }
 
               showNotification(
                 language === "bn"
@@ -463,18 +503,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     );
 
     // Update local admin state from currentShop
-    setAdmin({
-      name: currentShop.name,
-      phone: currentShop.phone,
-      role: "Owner",
-      image: currentShop.logo,
-      email: currentShop.ownerEmail,
-      password: "", // Not used for real auth
-      whatsapp: currentShop.whatsapp,
-      bkash: currentShop.bkash,
-      nagad: currentShop.nagad,
-      rocket: currentShop.rocket,
-    });
+    setTimeout(() => {
+      setAdmin({
+        name: currentShop.name,
+        phone: currentShop.phone,
+        role: "Owner",
+        image: currentShop.logo,
+        email: currentShop.ownerEmail,
+        password: "", // Not used for real auth
+        whatsapp: currentShop.whatsapp,
+        bkash: currentShop.bkash,
+        nagad: currentShop.nagad,
+        rocket: currentShop.rocket,
+      });
+    }, 0);
 
     return () => {
       unsubProducts();
@@ -556,7 +598,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     setUser(null);
   };
 
-  const createShop = async (shopData: Omit<Shop, "id" | "ownerUid" | "ownerEmail" | "createdAt">): Promise<string> => {
+  const createShop = async (shopData: Omit<Shop, "id" | "ownerUid" | "ownerEmail" | "createdAt">, extraUserInfo?: { name?: string; phone?: string }): Promise<string> => {
     if (!auth.currentUser) throw new Error("Must be logged in to create a shop");
     const shopId = crypto.randomUUID();
     const newShop: Shop = {
@@ -565,15 +607,53 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       ownerUid: auth.currentUser.uid,
       ownerEmail: auth.currentUser.email!,
       createdAt: new Date().toISOString(),
+      plan: "Free",
+      themeOptions: {
+        primaryColor: "#000000",
+        secondaryColor: "#ffffff",
+        fontStyle: "Inter",
+        layoutStyle: "modern",
+      },
+      seo: {
+        metaTitle: shopData.name,
+        metaDescription: `Welcome to ${shopData.name}`,
+        metaKeywords: "shop, ecommerce",
+        socialPreviewImage: shopData.logo,
+      },
+      settings: {
+        theme: "default",
+        currency: "BDT",
+        contactEmail: auth.currentUser.email!,
+        paymentMethods: {
+          cod: true,
+          bkash: true,
+          nagad: true,
+          rocket: true,
+        }
+      }
     };
     await setDoc(doc(db, "shops", shopId), sanitize(newShop));
     
     // Update user profile
     const userRef = doc(db, "users", auth.currentUser.uid);
-    await updateDoc(userRef, {
+    const userDoc = await getDoc(userRef);
+    
+    const userUpdates: any = {
       role: "admin",
-      shopId: shopId
-    });
+      shopId: shopId,
+      ...(extraUserInfo || {})
+    };
+
+    if (userDoc.exists()) {
+      await updateDoc(userRef, sanitize(userUpdates));
+    } else {
+      await setDoc(userRef, sanitize({
+        id: auth.currentUser.uid,
+        email: auth.currentUser.email,
+        createdAt: new Date().toISOString(),
+        ...userUpdates
+      }));
+    }
     
     setCurrentShop(newShop);
     setIsLoggedIn(true);
@@ -586,6 +666,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!querySnapshot.empty) {
       const shop = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as Shop;
       return shop;
+    }
+    return null;
+  };
+
+  const fetchShopById = async (id: string): Promise<Shop | null> => {
+    const shopDoc = await getDoc(doc(db, "shops", id));
+    if (shopDoc.exists()) {
+      return { id: shopDoc.id, ...shopDoc.data() } as Shop;
     }
     return null;
   };
@@ -698,8 +786,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const placeOrder = (order: Order) =>
     wrapOp(async () => {
-      if (!currentShop) throw new Error("No shop selected");
-      const orderWithShop = { ...order, shopId: currentShop.id };
+      const shopId = currentShop?.id || order.shopId;
+      if (!shopId) throw new Error("No shop selected");
+      const orderWithShop = { ...order, shopId: shopId };
       await setDoc(doc(db, "orders", order.id), sanitize(orderWithShop));
 
       if (user && user.id) {
@@ -853,9 +942,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const addProduct = (product: Product) =>
     wrapOp(async () => {
-      if (!currentShop) throw new Error("No shop selected");
+      const shopId = currentShop?.id || product.shopId;
+      if (!shopId) throw new Error("No shop selected");
       const { id, ...data } = product;
-      await setDoc(doc(db, "products", id), sanitize({ ...data, shopId: currentShop.id }));
+      await setDoc(doc(db, "products", id), sanitize({ ...data, shopId: shopId }));
       showNotification(
         language === "bn"
           ? "প্রোডাক্ট যুক্ত হয়েছে"
@@ -887,14 +977,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       );
     }, OperationType.DELETE, `products/${id}`);
 
-  const addBanner = (banner: Omit<Banner, "id">) =>
+  const addBanner = (banner: Omit<Banner, "id"> & { shopId?: string }) =>
     wrapOp(async () => {
-      if (!currentShop) throw new Error("No shop selected");
+      const shopId = currentShop?.id || banner.shopId;
+      if (!shopId) throw new Error("No shop selected");
       await addDoc(
         collection(db, "banners"),
         sanitize({
           ...banner,
-          shopId: currentShop.id,
+          shopId: shopId,
           createdAt: new Date().toISOString(),
         }),
       );
@@ -927,14 +1018,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       );
     }, OperationType.DELETE, `banners/${id}`);
 
-  const addCollection = (collectionData: Omit<Collection, "id">) =>
+  const addCollection = (collectionData: Omit<Collection, "id"> & { shopId?: string }) =>
     wrapOp(async () => {
-      if (!currentShop) throw new Error("No shop selected");
+      const shopId = currentShop?.id || collectionData.shopId;
+      if (!shopId) throw new Error("No shop selected");
       await addDoc(
         collection(db, "collections"),
         sanitize({
           ...collectionData,
-          shopId: currentShop.id,
+          shopId: shopId,
           createdAt: new Date().toISOString(),
         }),
       );
@@ -969,14 +1061,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       );
     }, OperationType.DELETE, `collections/${id}`);
 
-  const addFlashSale = (flashSale: Omit<FlashSale, "id">) =>
+  const addFlashSale = (flashSale: Omit<FlashSale, "id"> & { shopId?: string }) =>
     wrapOp(async () => {
-      if (!currentShop) throw new Error("No shop selected");
+      const shopId = currentShop?.id || flashSale.shopId;
+      if (!shopId) throw new Error("No shop selected");
       await addDoc(
         collection(db, "flashSales"),
         sanitize({
           ...flashSale,
-          shopId: currentShop.id,
+          shopId: shopId,
           createdAt: new Date().toISOString(),
         }),
       );
@@ -1013,9 +1106,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const addCustomer = (customer: Customer) =>
     wrapOp(async () => {
-      if (!currentShop) throw new Error("No shop selected");
+      const shopId = currentShop?.id || customer.shopId;
+      if (!shopId) throw new Error("No shop selected");
       const { id, ...data } = customer;
-      await setDoc(doc(db, "customers", id), sanitize({ ...data, shopId: currentShop.id }));
+      await setDoc(doc(db, "customers", id), sanitize({ ...data, shopId: shopId }));
       showNotification(
         language === "bn"
           ? "কাস্টমার যুক্ত হয়েছে"
@@ -1049,9 +1143,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const addExpense = (expense: Expense) =>
     wrapOp(async () => {
-      if (!currentShop) throw new Error("No shop selected");
+      const shopId = currentShop?.id || expense.shopId;
+      if (!shopId) throw new Error("No shop selected");
       const { id, ...data } = expense;
-      await setDoc(doc(db, "expenses", id), sanitize({ ...data, shopId: currentShop.id }));
+      await setDoc(doc(db, "expenses", id), sanitize({ ...data, shopId: shopId }));
       showNotification(
         language === "bn" ? "খরচ যুক্ত হয়েছে" : "Expense added successfully",
         "success",
@@ -1079,9 +1174,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const addSale = (sale: Sale) =>
     wrapOp(async () => {
-      if (!currentShop) throw new Error("No shop selected");
+      const shopId = currentShop?.id || sale.shopId;
+      if (!shopId) throw new Error("No shop selected");
       const { id, ...saleData } = sale;
-      await setDoc(doc(db, "sales", id), sanitize({ ...saleData, shopId: currentShop.id }));
+      await setDoc(doc(db, "sales", id), sanitize({ ...saleData, shopId: shopId }));
 
       // Stock update logic
       const product = products.find((p) => p.id === sale.productId);
@@ -1235,10 +1331,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     window.open(link, "_blank");
   };
 
-  const updateAdmin = (adminData: BusinessState["admin"]) =>
+  const updateShopSettings = (shopData: Partial<Shop>) =>
     wrapOp(async () => {
       if (!currentShop) throw new Error("No shop selected");
-      const updates = {
+      await updateDoc(doc(db, "shops", currentShop.id), sanitize(shopData));
+      setCurrentShop({ ...currentShop, ...shopData });
+      showNotification("Shop settings updated successfully!", "success");
+    });
+
+  const updateAdmin = (adminData: BusinessState["admin"] & { paymentMethods?: NonNullable<Shop["settings"]>["paymentMethods"] }) =>
+    wrapOp(async () => {
+      if (!currentShop) throw new Error("No shop selected");
+      const updates: any = {
         name: adminData.name,
         phone: adminData.phone,
         logo: adminData.image,
@@ -1247,6 +1351,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         nagad: adminData.nagad,
         rocket: adminData.rocket,
       };
+      
+      if (adminData.paymentMethods) {
+        updates.settings = {
+          ...(currentShop.settings || {}),
+          paymentMethods: adminData.paymentMethods
+        };
+      }
+
       await updateDoc(doc(db, "shops", currentShop.id), sanitize(updates));
       setCurrentShop({ ...currentShop, ...updates });
       showNotification(
@@ -1270,6 +1382,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         setCurrentShop,
         createShop,
         fetchShopBySlug,
+        fetchShopById,
         products,
         customers,
         sales,
@@ -1315,6 +1428,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         deleteCustomer,
         receivePayment,
         updateAdmin,
+        updateShopSettings,
         setLanguage,
         setApiKey,
         toggleTheme,
@@ -1322,6 +1436,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         signUp,
         logout,
         loginUser,
+        registerUser,
         logoutUser,
         toggleWishlist,
         applyCoupon,

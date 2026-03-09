@@ -22,6 +22,8 @@ export interface Shop {
   id: string;
   name: string;
   logo: string;
+  bannerImage?: string;
+  description?: string;
   ownerEmail: string;
   ownerUid: string;
   phone: string;
@@ -30,9 +32,33 @@ export interface Shop {
   bkash?: string;
   nagad?: string;
   rocket?: string;
-  slug: string; // For custom URL like /shop/my-shop
+  slug: string; // For custom URL like /store/my-shop
+  customDomain?: string;
   createdAt: string;
-  themeColor?: string;
+  plan: "Free" | "Pro" | "Business";
+  themeOptions?: {
+    primaryColor: string;
+    secondaryColor: string;
+    fontStyle: string;
+    layoutStyle: string;
+  };
+  seo?: {
+    metaTitle: string;
+    metaDescription: string;
+    metaKeywords: string;
+    socialPreviewImage: string;
+  };
+  settings?: {
+    theme?: string;
+    currency?: string;
+    contactEmail?: string;
+    paymentMethods?: {
+      cod: boolean;
+      bkash: boolean;
+      nagad: boolean;
+      rocket: boolean;
+    }
+  }
 }
 
 export interface Product {
@@ -64,6 +90,12 @@ export interface Product {
   seoTitle?: string;
   seoDescription?: string;
   seoKeywords?: string;
+  slug?: string;
+  flashSale?: {
+    startTime: string;
+    endTime: string;
+    discountPrice: number;
+  };
   isNewArrival: boolean;
   isBestSeller: boolean;
   isFeatured: boolean;
@@ -91,8 +123,9 @@ export interface UserProfile {
   wishlist: string[]; // Product IDs
   orders: string[]; // Order IDs
   createdAt: string;
-  role?: "admin" | "customer";
+  role?: "admin" | "customer" | "owner";
   shopId?: string; // If admin, which shop they manage
+  photoURL?: string;
 }
 
 export interface Coupon {
@@ -119,6 +152,8 @@ export interface Sale {
   quantity: number;
   salePrice: number;
   totalAmount: number;
+  couponCode?: string;
+  discountAmount?: number;
   paidAmount: number;
   dueAmount: number;
   profit: number;

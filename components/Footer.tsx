@@ -97,7 +97,7 @@ const Footer: React.FC = () => {
           <ul className="space-y-4">
             <li>
               <Link
-                to={`/s/${currentShop?.slug}/shop`}
+                to={`/store/${currentShop?.slug}/shop`}
                 className="text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-indigo-600 transition-colors"
               >
                 {isBn ? "শপ" : "Shop"}
@@ -105,7 +105,7 @@ const Footer: React.FC = () => {
             </li>
             <li>
               <Link
-                to={`/s/${currentShop?.slug}/about`}
+                to={`/store/${currentShop?.slug}/about`}
                 className="text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-indigo-600 transition-colors"
               >
                 {isBn ? "আমাদের সম্পর্কে" : "About Us"}
@@ -113,7 +113,7 @@ const Footer: React.FC = () => {
             </li>
             <li>
               <Link
-                to={`/s/${currentShop?.slug}/profile`}
+                to={`/store/${currentShop?.slug}/profile`}
                 className="text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-indigo-600 transition-colors"
               >
                 {isBn ? "আমার প্রোফাইল" : "My Profile"}

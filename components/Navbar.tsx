@@ -31,7 +31,7 @@ const Navbar: React.FC<NavbarProps> = ({
         <div className="flex justify-between items-center h-16 md:h-20">
           <div
             className="flex items-center gap-2 md:gap-3 group cursor-pointer"
-            onClick={() => navigate(`/s/${currentShop?.slug}`)}
+            onClick={() => navigate(`/store/${currentShop?.slug}`)}
           >
             <div className="relative">
               <div className="absolute inset-0 bg-indigo-600 blur-lg opacity-20 group-hover:opacity-40 transition-opacity rounded-full"></div>
@@ -67,13 +67,13 @@ const Navbar: React.FC<NavbarProps> = ({
 
           <div className="flex items-center gap-2 md:gap-4">
             <Link
-              to={`/s/${currentShop?.slug}/shop`}
+              to={`/store/${currentShop?.slug}/shop`}
               className="hidden lg:block text-xs font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors"
             >
               {language === "bn" ? "দোকান" : "Shop"}
             </Link>
             <Link
-              to={`/s/${currentShop?.slug}/about`}
+              to={`/store/${currentShop?.slug}/about`}
               className="hidden lg:block text-xs font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors"
             >
               {language === "bn" ? "আমাদের সম্পর্কে" : "About Us"}
@@ -88,7 +88,7 @@ const Navbar: React.FC<NavbarProps> = ({
             </Link>
 
             <button
-              onClick={() => navigate(user ? `/s/${currentShop?.slug}/profile` : `/s/${currentShop?.slug}/login`)}
+              onClick={() => navigate(user ? `/store/${currentShop?.slug}/profile` : `/store/${currentShop?.slug}/login`)}
               className="w-10 h-10 md:w-11 md:h-11 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl md:rounded-2xl flex items-center justify-center shadow-sm border border-slate-200 dark:border-slate-700 hover:border-indigo-100 active:scale-90 transition-all"
             >
               <User size={18} className="md:w-5 md:h-5" />

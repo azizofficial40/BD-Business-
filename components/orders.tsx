@@ -25,6 +25,7 @@ const ORDERS_T = {
     status: {
       Pending: "Pending",
       Confirmed: "Accepted",
+      Processing: "Processing",
       Shipped: "Shipped",
       Delivered: "Delivered",
       Cancelled: "Cancelled",
@@ -54,6 +55,7 @@ const ORDERS_T = {
     status: {
       Pending: "পেন্ডিং",
       Confirmed: "গৃহীত",
+      Processing: "প্রসেসিং",
       Shipped: "শিপড",
       Delivered: "ডেলিভারড",
       Cancelled: "বাতিল",

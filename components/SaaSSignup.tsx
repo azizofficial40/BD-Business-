@@ -75,6 +75,7 @@ const SaaSSignup: React.FC = () => {
           logo: "",
           phone: "",
           address: "",
+          plan: "Free",
         });
 
         if (shopId) {
@@ -209,7 +210,7 @@ const SaaSSignup: React.FC = () => {
                 </label>
                 <div className="relative">
                   <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
-                    sylsas.com/s/
+                    sylsas.com/store/
                   </div>
                   <input
                     type="text"

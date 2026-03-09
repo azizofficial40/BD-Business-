@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Banner, Collection, FlashSale } from "../types";
 import { compressImage } from "../utils/image";
+import { uploadImage } from "../services/storage";
 
 const WebsiteManagement: React.FC = () => {
   const {
@@ -22,6 +23,7 @@ const WebsiteManagement: React.FC = () => {
     flashSales = [],
     products = [],
     language,
+    currentShop,
     addBanner,
     updateBanner,
     deleteBanner,
@@ -39,6 +41,7 @@ const WebsiteManagement: React.FC = () => {
 
   const [isAdding, setIsAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // States for new items
   const [newBanner, setNewBanner] = useState<Partial<Banner>>({
@@ -68,25 +71,32 @@ const WebsiteManagement: React.FC = () => {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setIsUploading(true);
       try {
         const compressedImage = await compressImage(file);
+        const url = await uploadImage(compressedImage, "website-assets");
         if (activeSection === "banners")
-          setNewBanner({ ...newBanner, image: compressedImage });
+          setNewBanner({ ...newBanner, image: url });
         else if (activeSection === "collections")
-          setNewCollection({ ...newCollection, image: compressedImage });
+          setNewCollection({ ...newCollection, image: url });
         else if (activeSection === "flashSales")
-          setNewFlashSale({ ...newFlashSale, image: compressedImage });
+          setNewFlashSale({ ...newFlashSale, image: url });
       } catch (error) {
-        console.error("Error compressing image:", error);
+        console.error("Error compressing/uploading image:", error);
       }
+      setIsUploading(false);
     }
   };
 
   const handleAdd = async () => {
+    if (!currentShop) {
+      alert("Please select a shop first.");
+      return;
+    }
     try {
       if (activeSection === "banners") {
         if (!newBanner.title || !newBanner.image) return;
-        await addBanner(newBanner as Omit<Banner, "id">);
+        await addBanner({ ...newBanner, shopId: currentShop.id } as Omit<Banner, "id">);
         setNewBanner({
           title: "",
           image: "",
@@ -96,7 +106,7 @@ const WebsiteManagement: React.FC = () => {
         });
       } else if (activeSection === "collections") {
         if (!newCollection.name || !newCollection.image) return;
-        await addCollection(newCollection as Omit<Collection, "id">);
+        await addCollection({ ...newCollection, shopId: currentShop.id } as Omit<Collection, "id">);
         setNewCollection({
           name: "",
           description: "",
@@ -105,7 +115,7 @@ const WebsiteManagement: React.FC = () => {
         });
       } else if (activeSection === "flashSales") {
         if (!newFlashSale.title || !newFlashSale.image) return;
-        await addFlashSale(newFlashSale as Omit<FlashSale, "id">);
+        await addFlashSale({ ...newFlashSale, shopId: currentShop.id } as Omit<FlashSale, "id">);
         setNewFlashSale({
           title: "",
           image: "",
@@ -212,9 +222,14 @@ const WebsiteManagement: React.FC = () => {
                 onChange={handleFileChange}
               />
               <div
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full h-40 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-500 transition-colors overflow-hidden group relative"
+                onClick={() => !isUploading && fileInputRef.current?.click()}
+                className={`w-full h-40 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-500 transition-colors overflow-hidden group relative ${isUploading ? "opacity-50 cursor-not-allowed" : ""}`}
               >
+                {isUploading && (
+                  <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-sm flex items-center justify-center z-20">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                  </div>
+                )}
                 {(activeSection === "banners" && newBanner.image) ||
                 (activeSection === "collections" && newCollection.image) ||
                 (activeSection === "flashSales" && newFlashSale.image) ? (
@@ -483,9 +498,10 @@ const WebsiteManagement: React.FC = () => {
             </button>
             <button
               onClick={handleAdd}
-              className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-100"
+              disabled={isUploading}
+              className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save
+              {isUploading ? "Uploading..." : "Save"}
             </button>
           </div>
         </div>

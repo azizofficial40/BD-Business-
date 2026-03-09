@@ -9,6 +9,7 @@ const Expenses: React.FC = () => {
     addExpense,
     updateExpense,
     deleteExpense,
+    currentShop,
   } = useStore();
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -30,10 +31,15 @@ const Expenses: React.FC = () => {
   ];
 
   const handleSave = () => {
+    if (!currentShop) {
+      alert("Please select a shop first.");
+      return;
+    }
     if (newExpense.amount && newExpense.amount > 0) {
       if (editingId) {
         updateExpense({
           id: editingId,
+          shopId: currentShop.id,
           category: newExpense.category || "Other",
           amount: newExpense.amount,
           notes: newExpense.notes || "",
@@ -42,6 +48,7 @@ const Expenses: React.FC = () => {
       } else {
         addExpense({
           id: Date.now().toString(),
+          shopId: currentShop.id,
           category: newExpense.category || "Other",
           amount: newExpense.amount,
           notes: newExpense.notes || "",

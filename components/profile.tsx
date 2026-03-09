@@ -13,7 +13,7 @@ import {
   XCircle,
   Truck,
 } from "lucide-react";
-import Footer from "./Footer.tsx";
+import Footer from "./Footer";
 import { motion } from "framer-motion";
 
 const Profile: React.FC = () => {
@@ -22,7 +22,7 @@ const Profile: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"orders" | "wishlist">("orders");
 
   if (!user) {
-    navigate(`/s/${currentShop?.slug}/login`);
+    navigate(`/store/${currentShop?.slug}/login`);
     return null;
   }
 
@@ -238,7 +238,7 @@ const Profile: React.FC = () => {
                 <Package className="w-16 h-16 text-slate-200 mx-auto mb-4" />
                 <p className="text-slate-400 font-bold">No orders yet</p>
                 <button
-                  onClick={() => navigate(`/s/${currentShop?.slug}/shop`)}
+                  onClick={() => navigate(`/store/${currentShop?.slug}/shop`)}
                   className="mt-4 text-indigo-600 font-black text-sm uppercase tracking-widest hover:underline"
                 >
                   Start Shopping
@@ -273,7 +273,7 @@ const Profile: React.FC = () => {
                       ৳{product.salePrice}
                     </p>
                     <button
-                      onClick={() => navigate(`/s/${currentShop?.slug}/shop?product=${product.id}`)}
+                      onClick={() => navigate(`/store/${currentShop?.slug}/shop?product=${product.id}`)}
                       className="mt-3 text-xs font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 flex items-center gap-1"
                     >
                       View Details <ChevronRight size={12} />
@@ -287,7 +287,7 @@ const Profile: React.FC = () => {
               <Heart className="w-16 h-16 text-slate-200 mx-auto mb-4" />
               <p className="text-slate-400 font-bold">Your wishlist is empty</p>
               <button
-                onClick={() => navigate(`/s/${currentShop?.slug}/shop`)}
+                onClick={() => navigate(`/store/${currentShop?.slug}/shop`)}
                 className="mt-4 text-indigo-600 font-black text-sm uppercase tracking-widest hover:underline"
               >
                 Explore Products

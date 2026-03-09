@@ -19,8 +19,8 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import Navbar from "./Navbar.tsx";
-import Footer from "./Footer.tsx";
+import Navbar from "./Navbar";
+import Footer from "./Footer";
 import { Product } from "../types";
 
 const Home: React.FC = () => {
@@ -83,7 +83,7 @@ const Home: React.FC = () => {
       transition={{ duration: 0.5 }}
       className="min-h-screen bg-white dark:bg-slate-950 selection:bg-indigo-100 dark:selection:bg-indigo-900/30"
     >
-      <Navbar onCartClick={() => navigate(`/s/${currentShop?.slug}/shop`)} />
+      <Navbar onCartClick={() => navigate(`/store/${currentShop?.slug}/shop`)} />
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center overflow-hidden bg-slate-950 py-20 lg:py-0">
@@ -132,7 +132,7 @@ const Home: React.FC = () => {
               </p>
               <div className="flex flex-wrap gap-4 md:gap-6 pt-4">
                 <button
-                  onClick={() => navigate(`/s/${currentShop?.slug}/shop`)}
+                  onClick={() => navigate(`/store/${currentShop?.slug}/shop`)}
                   className="group relative px-6 py-4 md:px-10 md:py-5 bg-white text-slate-950 rounded-full font-black text-[10px] md:text-xs uppercase tracking-[0.2em] overflow-hidden transition-all hover:pr-14"
                 >
                   <span className="relative z-10">
@@ -289,7 +289,7 @@ const Home: React.FC = () => {
               </div>
             </div>
             <button
-              onClick={() => navigate(`/s/${currentShop?.slug}/shop`)}
+              onClick={() => navigate(`/store/${currentShop?.slug}/shop`)}
               className="px-6 py-2 bg-white text-rose-600 rounded-full font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-transform"
             >
               Grab Now
@@ -317,7 +317,7 @@ const Home: React.FC = () => {
             </h2>
           </div>
           <button
-            onClick={() => navigate("/shop")}
+            onClick={() => navigate(`/store/${currentShop?.slug}/shop`)}
             className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 flex items-center gap-2 group"
           >
             {language === "bn" ? "সব দেখুন" : "View All"}{" "}
@@ -338,7 +338,7 @@ const Home: React.FC = () => {
                   viewport={{ once: true }}
                   transition={{ duration: 0.8, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
                   className="group relative aspect-[4/5] rounded-3xl md:rounded-[3rem] overflow-hidden cursor-pointer bg-slate-100 dark:bg-slate-800"
-                  onClick={() => navigate(`/s/${currentShop?.slug}/shop?collection=${col.id}`)}
+                  onClick={() => navigate(`/store/${currentShop?.slug}/shop?collection=${col.id}`)}
                 >
                   <img
                     src={col.image || `https://picsum.photos/seed/${col.name}/600/800`}
@@ -367,7 +367,7 @@ const Home: React.FC = () => {
                   viewport={{ once: true }}
                   transition={{ duration: 0.8, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
                   className="group relative aspect-[4/5] rounded-3xl md:rounded-[3rem] overflow-hidden cursor-pointer bg-slate-100 dark:bg-slate-800"
-                  onClick={() => navigate(`/s/${currentShop?.slug}/shop?category=${cat}`)}
+                  onClick={() => navigate(`/store/${currentShop?.slug}/shop?category=${cat}`)}
                 >
                   <img
                     src={`https://picsum.photos/seed/${cat}/600/800`}
@@ -443,7 +443,7 @@ const Home: React.FC = () => {
             </h2>
           </div>
           <button
-            onClick={() => navigate(`/s/${currentShop?.slug}/shop`)}
+            onClick={() => navigate(`/store/${currentShop?.slug}/shop`)}
             className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 flex items-center gap-2 group"
           >
             {language === "bn" ? "আরও দেখুন" : "See More"}{" "}
@@ -538,7 +538,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
     <motion.div
       whileHover={{ y: -10 }}
       className="group bg-white dark:bg-slate-900 rounded-3xl md:rounded-[2.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 cursor-pointer"
-      onClick={() => navigate(`/s/${currentShop?.slug}/shop?product=${product.id}`)}
+      onClick={() => navigate(`/store/${currentShop?.slug}/shop?product=${product.id}`)}
     >
       <div className="aspect-[3/4] overflow-hidden relative bg-slate-100 dark:bg-slate-800">
         <img
@@ -566,7 +566,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/s/${currentShop?.slug}/shop?product=${product.id}`);
+              navigate(`/store/${currentShop?.slug}/shop?product=${product.id}`);
             }}
             className="flex-1 py-3 md:py-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md text-slate-900 dark:text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-white dark:hover:bg-slate-800 transition-colors"
           >

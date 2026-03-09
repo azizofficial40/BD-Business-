@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { GoogleGenAI } from "@google/genai";
 import { useStore } from "../store";
 import { Product, Size, StockVariant } from "../types";
 import {
@@ -19,6 +20,7 @@ import {
   Clock,
 } from "lucide-react";
 import { compressImage } from "../utils/image";
+import { uploadImage } from "../services/storage";
 
 const STOCK_T = {
   en: {
@@ -69,12 +71,15 @@ const Stock: React.FC = () => {
     updateProduct,
     deleteProduct,
     language,
+    currentShop,
   } = useStore();
   const t = STOCK_T[language];
   const [searchTerm, setSearchTerm] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const initialProductState: Partial<Product> = {
@@ -129,10 +134,60 @@ const Stock: React.FC = () => {
     return Math.round(((regular - sale) / regular) * 100);
   };
 
+  const generateAIContent = async () => {
+    if (!newProduct.name && !newProduct.title) {
+      alert("Please enter a product name or title first.");
+      return;
+    }
+
+    setIsGeneratingAI(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const prompt = `Generate a compelling product description, short description, tags (comma separated), SEO title, SEO description, and SEO keywords (comma separated) for a product named "${newProduct.title || newProduct.name}" in the category "${newProduct.category}". 
+      Return the result as a JSON object with the following keys: 
+      - shortDescription
+      - description
+      - tags
+      - seoTitle
+      - seoDescription
+      - seoKeywords`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+        },
+      });
+
+      const result = JSON.parse(response.text || "{}");
+      
+      setNewProduct(prev => ({
+        ...prev,
+        shortDescription: result.shortDescription || prev.shortDescription,
+        description: result.description || prev.description,
+        tags: result.tags ? result.tags.split(",").map((t: string) => t.trim()) : prev.tags,
+        seoTitle: result.seoTitle || prev.seoTitle,
+        seoDescription: result.seoDescription || prev.seoDescription,
+        seoKeywords: result.seoKeywords || prev.seoKeywords,
+      }));
+    } catch (error) {
+      console.error("Error generating AI content:", error);
+      alert("Failed to generate content. Please check your API key.");
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
   const handleSave = () => {
+    if (!currentShop) {
+      alert("Please select a shop first.");
+      return;
+    }
     if (newProduct.name) {
       const productData = {
         ...newProduct,
+        shopId: currentShop.id,
         sku:
           newProduct.sku ||
           generateSKU(newProduct.name, newProduct.category || "GEN"),
@@ -148,6 +203,8 @@ const Stock: React.FC = () => {
       }
       setIsAdding(false);
       resetForm();
+    } else {
+      alert("Please enter a product name.");
     }
   };
 
@@ -158,14 +215,16 @@ const Stock: React.FC = () => {
     const files = e.target.files;
     if (!files) return;
 
+    setIsUploading(true);
     if (isGallery) {
       const newImages: string[] = [];
       for (let i = 0; i < files.length; i++) {
         try {
           const compressed = await compressImage(files[i]);
-          newImages.push(compressed);
+          const url = await uploadImage(compressed, "products");
+          newImages.push(url);
         } catch (error) {
-          console.error("Error compressing gallery image:", error);
+          console.error("Error compressing/uploading gallery image:", error);
         }
       }
       setNewProduct((prev) => ({
@@ -176,11 +235,13 @@ const Stock: React.FC = () => {
       const file = files[0];
       try {
         const compressed = await compressImage(file);
-        setNewProduct({ ...newProduct, image: compressed });
+        const url = await uploadImage(compressed, "products");
+        setNewProduct((prev) => ({ ...prev, image: url }));
       } catch (error) {
-        console.error("Error compressing image:", error);
+        console.error("Error compressing/uploading image:", error);
       }
     }
+    setIsUploading(false);
   };
 
   const startEdit = (p: Product) => {
@@ -535,13 +596,30 @@ const Stock: React.FC = () => {
               <div className="space-y-12">
                 {/* Section 1: Basic Info */}
                 <div className="space-y-6">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl flex items-center justify-center text-indigo-600">
-                      <List size={16} />
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl flex items-center justify-center text-indigo-600">
+                        <List size={16} />
+                      </div>
+                      <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">
+                        Basic Information
+                      </h4>
                     </div>
-                    <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">
-                      Basic Information
-                    </h4>
+                    <button
+                      type="button"
+                      onClick={generateAIContent}
+                      disabled={isGeneratingAI || (!newProduct.name && !newProduct.title)}
+                      className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-indigo-200 dark:hover:bg-indigo-900/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isGeneratingAI ? (
+                        <span className="animate-pulse">Generating...</span>
+                      ) : (
+                        <>
+                          <span className="text-lg leading-none">✨</span>
+                          Generate AI Content
+                        </>
+                      )}
+                    </button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
@@ -693,9 +771,14 @@ const Stock: React.FC = () => {
                         Main Image
                       </label>
                       <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="relative aspect-video bg-slate-50 dark:bg-slate-800 rounded-3xl border-2 border-dashed border-slate-100 dark:border-slate-700 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-indigo-200 transition-colors overflow-hidden group"
+                        onClick={() => !isUploading && fileInputRef.current?.click()}
+                        className={`relative aspect-video bg-slate-50 dark:bg-slate-800 rounded-3xl border-2 border-dashed border-slate-100 dark:border-slate-700 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-indigo-200 transition-colors overflow-hidden group ${isUploading ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
+                        {isUploading && (
+                          <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-sm flex items-center justify-center z-20">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                          </div>
+                        )}
                         {newProduct.image ? (
                           <img
                             src={newProduct.image}
@@ -750,13 +833,18 @@ const Stock: React.FC = () => {
                             </button>
                           </div>
                         ))}
-                        <label className="aspect-square rounded-xl bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-100 dark:border-slate-700 flex items-center justify-center cursor-pointer hover:border-indigo-200 transition-colors">
-                          <Plus size={20} className="text-slate-400" />
+                        <label className={`aspect-square rounded-xl bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-100 dark:border-slate-700 flex items-center justify-center cursor-pointer hover:border-indigo-200 transition-colors relative ${isUploading ? "opacity-50 cursor-not-allowed" : ""}`}>
+                          {isUploading ? (
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                          ) : (
+                            <Plus size={20} className="text-slate-400" />
+                          )}
                           <input
                             type="file"
                             multiple
                             className="hidden"
                             accept="image/*"
+                            disabled={isUploading}
                             onChange={(e) => handleImageChange(e, true)}
                           />
                         </label>
@@ -1132,6 +1220,23 @@ const Stock: React.FC = () => {
                         }
                       />
                     </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
+                        Meta Keywords
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Comma separated keywords"
+                        className="w-full p-4 bg-white dark:bg-slate-900 border-0 rounded-2xl outline-none font-medium text-sm dark:text-white"
+                        value={newProduct.seoKeywords}
+                        onChange={(e) =>
+                          setNewProduct({
+                            ...newProduct,
+                            seoKeywords: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1207,15 +1312,17 @@ const Stock: React.FC = () => {
                   setNewProduct({ ...newProduct, status: "Draft" });
                   handleSave();
                 }}
-                className="flex-1 py-6 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-[2rem] font-black text-lg active:scale-95 transition-all"
+                disabled={isUploading}
+                className="flex-1 py-6 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-[2rem] font-black text-lg active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Save as Draft
               </button>
               <button
                 onClick={handleSave}
-                className="flex-[2] py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-lg shadow-2xl shadow-indigo-100 dark:shadow-indigo-950/30 active:scale-95 transition-all"
+                disabled={isUploading}
+                className="flex-[2] py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-lg shadow-2xl shadow-indigo-100 dark:shadow-indigo-950/30 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {editingId ? "Update Product" : "Publish Product"}
+                {isUploading ? "Uploading Images..." : editingId ? "Update Product" : "Publish Product"}
               </button>
             </div>
           </div>

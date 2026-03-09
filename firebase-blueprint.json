@@ -2,30 +2,18 @@
   "entities": {
     "Shop": {
       "title": "Shop",
-      "description": "Represents a shop in the multi-tenant system.",
+      "description": "A shop entity",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
-        "ownerUid": { "type": "string" },
-        "slug": { "type": "string" }
+        "ownerUid": { "type": "string" }
       },
-      "required": ["id", "name", "ownerUid", "slug"]
-    },
-    "UserProfile": {
-      "title": "UserProfile",
-      "description": "Represents a user profile.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "role": { "type": "string", "enum": ["admin", "customer"] }
-      },
-      "required": ["id", "email"]
+      "required": ["id", "name", "ownerUid"]
     },
     "Product": {
       "title": "Product",
-      "description": "Represents a product in a shop.",
+      "description": "A product entity",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -34,16 +22,16 @@
       },
       "required": ["id", "shopId", "name"]
     },
-    "Order": {
-      "title": "Order",
-      "description": "Represents a customer order.",
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "A user profile entity",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "shopId": { "type": "string" },
-        "userId": { "type": "string" }
+        "email": { "type": "string" },
+        "role": { "type": "string" }
       },
-      "required": ["id", "shopId"]
+      "required": ["id", "email"]
     }
   },
   "firestore": {
@@ -51,17 +39,13 @@
       "schema": { "$ref": "Shop" },
       "description": "Shops collection"
     },
-    "/users/{userId}": {
-      "schema": { "$ref": "UserProfile" },
-      "description": "Users collection"
-    },
-    "/shops/{shopId}/products/{productId}": {
+    "/products/{productId}": {
       "schema": { "$ref": "Product" },
       "description": "Products collection"
     },
-    "/shops/{shopId}/orders/{orderId}": {
-      "schema": { "$ref": "Order" },
-      "description": "Orders collection"
+    "/users/{userId}": {
+      "schema": { "$ref": "UserProfile" },
+      "description": "Users collection"
     }
   }
 }

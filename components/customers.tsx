@@ -146,7 +146,7 @@ const Customers: React.FC = () => {
               <button
                 key={customer.id}
                 onClick={() => setSelectedCustomer(customer.id)}
-                className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-white dark:border-slate-800 shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all hover:shadow-xl"
+                className={`bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all hover:shadow-xl ${customer.totalDue > 0 ? "border-rose-200 dark:border-rose-900" : "border-white dark:border-slate-800"}`}
               >
                 <div className="flex items-center gap-5">
                   <div

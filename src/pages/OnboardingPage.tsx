@@ -1,31 +1,76 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../services/firebase';
-import { handleFirestoreError, OperationType } from '../services/firestoreErrorHandler';
+import { useStore } from '../../store';
+import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
+import { db, auth } from '../../services/firebase';
+import { handleFirestoreError, OperationType } from '../../services/firestoreErrorHandler';
 import { Store, Globe, Image as ImageIcon, ArrowRight, CheckCircle2, Rocket } from 'lucide-react';
 import { motion } from 'motion/react';
+import { compressImage } from '../../utils/image';
+import { uploadImage } from '../../services/storage';
 
 const OnboardingPage: React.FC = () => {
   const [step, setStep] = useState(1);
   const [businessName, setBusinessName] = useState('');
   const [slug, setSlug] = useState('');
-  const [logo] = useState('');
+  const [logo, setLogo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [checking, setChecking] = useState(true);
   const navigate = useNavigate();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const { createShop } = useStore();
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      console.log("File selected:", file.name);
+      if (file.size > 2 * 1024 * 1024) {
+        alert("File size must be less than 2MB");
+        return;
+      }
+      setIsUploading(true);
+      try {
+        console.log("Starting compression");
+        const compressed = await compressImage(file);
+        console.log("Compression done");
+        const url = await uploadImage(compressed, "shop-logos");
+        console.log("Upload done, URL:", url);
+        setLogo(url);
+      } catch (error) {
+        console.error("Error uploading logo:", error);
+      }
+      setIsUploading(false);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
 
   useEffect(() => {
     const checkExistingBusiness = async () => {
       if (!auth.currentUser) return;
-      const q = query(collection(db, 'tenants'), where('ownerId', '==', auth.currentUser.uid));
+      const q = query(collection(db, 'shops'), where('ownerUid', '==', auth.currentUser.uid));
       try {
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
           navigate('/admin');
+          return;
+        }
+
+        // If no existing shop, check for signup info
+        const signupInfo = sessionStorage.getItem('signup_info');
+        if (signupInfo) {
+          const { shopName } = JSON.parse(signupInfo);
+          setBusinessName(shopName);
+          setSlug(shopName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''));
+          // We could auto-create here, but let's let the user confirm the slug
+          setStep(1); 
         }
       } catch (err) {
-        handleFirestoreError(err, OperationType.GET, 'tenants');
+        handleFirestoreError(err, OperationType.GET, 'shops');
       } finally {
         setChecking(false);
       }
@@ -38,12 +83,12 @@ const OnboardingPage: React.FC = () => {
     setLoading(true);
     try {
       // Check if slug is taken
-      const q = query(collection(db, 'tenants'), where('slug', '==', slug.toLowerCase()));
+      const q = query(collection(db, 'shops'), where('slug', '==', slug.toLowerCase()));
       let snapshot;
       try {
         snapshot = await getDocs(q);
       } catch (err) {
-        handleFirestoreError(err, OperationType.GET, 'tenants');
+        handleFirestoreError(err, OperationType.GET, 'shops');
         return;
       }
       
@@ -53,21 +98,25 @@ const OnboardingPage: React.FC = () => {
         return;
       }
 
+      const signupInfo = sessionStorage.getItem('signup_info');
+      const extraInfo = signupInfo ? JSON.parse(signupInfo) : {};
+
       try {
-        await addDoc(collection(db, 'tenants'), {
+        await createShop({
           name: businessName,
           slug: slug.toLowerCase(),
           logo: logo || `https://ui-avatars.com/api/?name=${encodeURIComponent(businessName)}&background=random`,
-          ownerId: auth.currentUser.uid,
-          createdAt: serverTimestamp(),
-          settings: {
-            theme: 'default',
-            currency: 'BDT',
-            contactEmail: auth.currentUser.email
-          }
+          phone: extraInfo.phone || '',
+          address: '',
+          plan: "Free",
+        }, {
+          name: extraInfo.fullName,
+          phone: extraInfo.phone
         });
+
+        sessionStorage.removeItem('signup_info');
       } catch (err) {
-        handleFirestoreError(err, OperationType.CREATE, 'tenants');
+        console.error(err);
       }
       setStep(3);
     } catch (err) {
@@ -132,7 +181,7 @@ const OnboardingPage: React.FC = () => {
                   <div className="relative">
                     <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                     <div className="flex items-center w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl">
-                      <span className="text-slate-400 mr-1">bdbusiness.com/s/</span>
+                      <span className="text-slate-400 mr-1">bdbusiness.com/store/</span>
                       <input
                         type="text"
                         value={slug}
@@ -161,7 +210,22 @@ const OnboardingPage: React.FC = () => {
               <p className="text-slate-500 mb-8 text-lg">Make your brand stand out.</p>
               
               <div className="space-y-8">
-                <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer group">
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileChange} 
+                  accept="image/*" 
+                  className="hidden" 
+                />
+                <div 
+                  onClick={() => !isUploading && triggerFileInput()}
+                  className={`flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer group relative ${isUploading ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-sm flex items-center justify-center z-20 rounded-3xl">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                    </div>
+                  )}
                   {logo ? (
                     <img src={logo} alt="Logo Preview" className="w-32 h-32 object-contain mb-4" />
                   ) : (
@@ -169,7 +233,7 @@ const OnboardingPage: React.FC = () => {
                       <ImageIcon size={40} />
                     </div>
                   )}
-                  <p className="text-sm font-semibold text-slate-600">Click to upload logo</p>
+                  <p className="text-sm font-semibold text-slate-600">Click to upload logo from gallery</p>
                   <p className="text-xs text-slate-400 mt-1">PNG, JPG up to 2MB</p>
                 </div>
 
@@ -182,10 +246,10 @@ const OnboardingPage: React.FC = () => {
                   </button>
                   <button
                     onClick={handleCreateBusiness}
-                    disabled={loading}
-                    className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+                    disabled={loading || isUploading}
+                    className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? 'Creating...' : 'Launch My Business'} <Rocket size={20} />
+                    {loading ? 'Creating...' : isUploading ? 'Uploading Logo...' : 'Launch My Business'} <Rocket size={20} />
                   </button>
                 </div>
               </div>
@@ -201,7 +265,7 @@ const OnboardingPage: React.FC = () => {
               <p className="text-xl text-slate-600 mb-12 leading-relaxed">
                 Your business <strong>{businessName}</strong> is ready. <br />
                 Your shop is live at: <br />
-                <span className="text-indigo-600 font-bold">bdbusiness.com/s/{slug}</span>
+                <span className="text-indigo-600 font-bold">bdbusiness.com/store/{slug}</span>
               </p>
               
               <button
